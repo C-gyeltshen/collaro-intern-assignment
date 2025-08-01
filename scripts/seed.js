@@ -3,7 +3,6 @@ require('dotenv').config({ path: './.env.local' }); // Load environment variable
 const { createClient } = require('@supabase/supabase-js');
 const { faker } = require('@faker-js/faker');
 
-// --- Configuration ---
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -18,16 +17,15 @@ const NUM_CUSTOMERS = 100;
 const MAX_ORDERS_PER_CUSTOMER = 5; 
 const MAX_ITEMS_PER_ORDER = 3;
 
-// --- Helper Functions for Data Generation ---
 
 // Generates a random future or past date within a range
 const getRandomDate = (startOffsetDays = -365, endOffsetDays = 0) => {
     const today = new Date();
     const startDate = new Date(today);
-    startDate.setDate(today.getDate() + startOffsetDays); // e.g., 1 year ago
+    startDate.setDate(today.getDate() + startOffsetDays); 
 
     const endDate = new Date(today);
-    endDate.setDate(today.getDate() + endOffsetDays); // e.g., today
+    endDate.setDate(today.getDate() + endOffsetDays); 
 
     return faker.date.between({ from: startDate, to: endDate });
 };
@@ -46,7 +44,7 @@ async function getLookupTableIds(tableName) {
 
 async function generateAndInsertCustomSize() {
     const customSize = {
-        chest: faker.number.float({ min: 30, max: 60, precision: 0.5 }), // in inches, allows .5 increments
+        chest: faker.number.float({ min: 30, max: 60, precision: 0.5 }), 
         waist: faker.number.float({ min: 25, max: 50, precision: 0.5 }),
         hips: faker.number.float({ min: 30, max: 60, precision: 0.5 }),
     };
@@ -102,8 +100,8 @@ async function seedDatabase() {
         let customerLastOrderDate = null;
 
         const ordersToInsert = [];
-        const orderItemsToInsert = []; // To store items before batch insert
-        const customSizesToInsert = []; // To store custom sizes before batch insert
+        const orderItemsToInsert = []; 
+        const customSizesToInsert = []; 
 
         for (let i = 0; i < numOrders; i++) {
             const orderDate = getRandomDate(-365, 0); // Orders from past year
@@ -118,10 +116,6 @@ async function seedDatabase() {
             };
             ordersToInsert.push(newOrder);
 
-            // Temporarily store order ID (we'll get the real one after insert)
-            // This is complex for batching. Let's simplify and insert orders one by one.
-            // For a single customer's orders, this is fine. For ALL orders at once, it's better to batch insert.
-            // For simplicity and dependency, we'll insert order by order for a customer.
             const { data: insertedOrder, error: orderError } = await supabase.from('orders').insert(newOrder).select().single();
             if (orderError) {
                 console.error('Error inserting order:', orderError);
@@ -137,10 +131,7 @@ async function seedDatabase() {
 
             for (let j = 0; j < numItems; j++) {
                 const customSize = await generateAndInsertCustomSize(); // Insert custom size first
-                currentOrderItemsTotal += customSize.price || 0; // Adjust if generateAndInsertCustomSize doesn't return price. Assume it's an item price here.
-                                                              // Fix: The custom_size table only has dimensions.
-                                                              // Price should be part of the order_item, not custom_size.
-                                                              // Let's fix this in the generateOrderItem logic below.
+                currentOrderItemsTotal += customSize.price || 0; 
 
                 const itemPrice = faker.number.int({ min: 100, max: 1000 }); // Price for this specific item
                 currentOrderItemsTotal += itemPrice; // Add item's price to current order's total
