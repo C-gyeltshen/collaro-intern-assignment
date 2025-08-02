@@ -1,4 +1,4 @@
-import { Customer } from './types'; // Import the Customer type
+import { Customer, Order } from './types'; // Import the Customer and Order types
 
 interface CustomerResponse {
   data: Customer[];
@@ -8,6 +8,10 @@ interface CustomerResponse {
     current_page: number;
     items_per_page: number;
   };
+}
+
+interface OrdersResponse {
+  data: Order[];
 }
 
 interface FetchCustomersParams {
@@ -45,6 +49,23 @@ export const fetchCustomers = async (params: FetchCustomersParams = {}): Promise
     return data;
   } catch (error) {
     console.error('Error fetching customers:', error);
+    throw error;
+  }
+};
+
+export const fetchCustomerOrders = async (customerId: string): Promise<OrdersResponse> => {
+  try {
+    const response = await fetch(`/api/customers/${customerId}/orders`);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    return data;
+  } catch (error) {
+    console.error('Error fetching customer orders:', error);
     throw error;
   }
 };
