@@ -51,75 +51,62 @@ export const fetchOrdersByCustomerId = async (customerId: string): Promise<Order
   return data.data;
 };
 
-
-export const updateCustomerStatus = async (
-  id: string,
-  newStatus: 'active' | 'churned' | 'prospect'
-) => {
-  const response = await fetch(`/api/customers/${id}/orders`, {
-    method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ 
-      status: newStatus,
-      updated_at: new Date().toISOString()
-    }),
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || `Failed to update customer status: ${response.status}`);
-  }
-
-  return response.json();
-};
-
-export const updateOrderItemCustomSize = async (
-  request: UpdateCustomSizeRequest
-): Promise<UpdateCustomSizeResponse> => {
+export const updateOrderItemCustomSize = async ({
+  orderId,
+  itemId,
+  customSize,
+}: {
+  orderId: string;
+  itemId: string;
+  customSize: { chest: number; waist: number; hips: number };
+}) => {
   try {
-    console.log('=== SERVICE FUNCTION CALLED ===');
-    console.log('Service - Making request with:', request);
-    
-    const url = `/api/orders/${request.orderId}/items/${request.itemId}`;
-    console.log('Service - Making request to URL:', url);
-    
-    const response = await fetch(url, {
+    console.log('Service - updateOrderItemCustomSize called with:', {
+      orderId,
+      itemId,
+      customSize,
+    });
+
+    // Make HTTP PATCH request to update the custom size
+    const response = await fetch(`/api/orders/${orderId}/items/${itemId}`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        customSize: request.customSize,
-        updatedAt: new Date().toISOString(),
+        customSize: {
+          chest: customSize.chest,
+          waist: customSize.waist,
+          hips: customSize.hips,
+        },
       }),
     });
 
-    console.log('Service - Response status:', response.status);
-    console.log('Service - Response ok:', response.ok);
-
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      console.error('Service - Error response:', errorData);
-      throw new Error(errorData.error || `Failed to update custom size: ${response.status}`);
+      throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
     }
 
     const result = await response.json();
-    console.log('Service - Success response:', result);
-    
+
+    console.log('Service - HTTP response result:', result);
+
     return {
       success: true,
-      data: result.data,
+      data: {
+        orderId,
+        itemId,
+        customSize: result.customSize || customSize,
+      },
     };
   } catch (error) {
-    console.error('=== SERVICE ERROR ===', error);
+    console.error('Service - Error updating custom size:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to update custom size',
+      data: null,
     };
   }
 };
-
 
 

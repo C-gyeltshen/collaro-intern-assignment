@@ -1,4 +1,4 @@
-import { Customer, Order } from './types'; // Import the Customer and Order types
+import { Customer, Order } from './types'; 
 
 interface CustomerResponse {
   data: Customer[];

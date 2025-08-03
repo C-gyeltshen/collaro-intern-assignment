@@ -1,17 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '../../../../../../../utils/supabase/server';
 
+const supabase = createClient(
+);
+
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ orderId: string; itemId: string }> }
+  { params }: { params: { orderId: string; itemId: string } }
 ) {
   try {
-    // Await params first (Next.js 15 requirement)
-    const { orderId, itemId } = await params;
-    
-    // Create Supabase client inside the request handler
-    const supabase = await createClient();
-    
+    const { orderId, itemId } = params;
     const body = await request.json();
     const { customSize, updatedAt } = body;
 
@@ -36,7 +34,7 @@ export async function PATCH(
     }
 
     // First, verify that the order item exists and get current custom_size_id
-    const { data: orderItem, error: orderItemError } = await supabase
+    const { data: orderItem, error: orderItemError } = await (await supabase)
       .from('order_items')
       .select('id, custom_size_id, order_id')
       .eq('id', itemId)
@@ -52,7 +50,7 @@ export async function PATCH(
     }
 
     // Check if a custom size with these exact measurements already exists
-    const { data: existingCustomSize, error: existingError } = await supabase
+    const { data: existingCustomSize, error: existingError } = await (await supabase)
       .from('custom_sizes')
       .select('id')
       .eq('chest', customSize.chest)
@@ -68,7 +66,7 @@ export async function PATCH(
       console.log('Using existing custom size:', customSizeId);
     } else {
       // Create new custom size record
-      const { data: newCustomSize, error: createError } = await supabase
+      const { data: newCustomSize, error: createError } = await (await supabase)
         .from('custom_sizes')
         .insert({
           chest: customSize.chest,
@@ -92,7 +90,7 @@ export async function PATCH(
     }
 
     // Update the order item with the new custom_size_id
-    const { data: updatedOrderItem, error: updateError } = await supabase
+    const { data: updatedOrderItem, error: updateError } = await (await supabase)
       .from('order_items')
       .update({
         custom_size_id: customSizeId,
@@ -123,7 +121,7 @@ export async function PATCH(
 
     // Clean up old custom size if it's not used by other order items
     if (orderItem.custom_size_id && orderItem.custom_size_id !== customSizeId) {
-      const { data: otherItems } = await supabase
+      const { data: otherItems } = await (await supabase)
         .from('order_items')
         .select('id')
         .eq('custom_size_id', orderItem.custom_size_id)
@@ -131,7 +129,7 @@ export async function PATCH(
 
       // If no other items use the old custom size, delete it
       if (!otherItems || otherItems.length === 0) {
-        await supabase
+        await (await supabase)
           .from('custom_sizes')
           .delete()
           .eq('id', orderItem.custom_size_id);

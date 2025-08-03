@@ -208,20 +208,7 @@ export async function PATCH(
     // 4. Log the status change
     console.log(`Customer ${id} status updated from ${existingCustomer.customer_statuses.name} to ${status}`);
 
-    // This is a great idea, but the table 'customer_status_history' needs to exist in your database
-    /*
-    await supabase
-      .from('customer_status_history')
-      .insert({
-        customer_id: id,
-        previous_status: existingCustomer.customer_statuses.name,
-        new_status: status,
-        changed_at: new Date().toISOString(),
-      })
-      .catch((error) => {
-        console.warn('Failed to log status change:', error);
-      });
-    */
+
     
     // Return a clean response
     return NextResponse.json({
