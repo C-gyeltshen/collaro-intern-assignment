@@ -1,5 +1,4 @@
 # Collaro Singapore Dashboard Application
-<!-- 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 -->
 
 ### Overview
 This project is a dashboard application for Collaro Singapore, built using Nextjs, Tailwind CSS, Material UI and Superbase postghresql database. The application is designed to provide a user-friendly interface for managing and visualizing customer data.
@@ -295,5 +294,83 @@ This project is a dashboard application for Collaro Singapore, built using Nextj
 
 5. **API Endpoint Implementation:**
 
-- ***GET /api/customers :***
-    - 
+
+    **Customer Endpoints**
+
+    - **GET `/api/customers/`**  
+    Fetch all customers along with their basic information.
+
+    - **GET `/api/customers/[id]/orders`**  
+    Fetch all orders for a specific customer.  
+    _Implementation: `src/app/api/customers/[id]/orders/route.ts`_
+
+    - **PATCH `/api/customers/[id]/orders`**  
+    Update a customer’s status (`active`, `churned`, or `prospect`).  
+    _Implementation: same file as above._
+
+    ---
+
+    **Order Endpoints**
+
+    - **GET `/api/customers/[customerId]/orders/[orderId]`**  
+    Fetch details of a specific order belonging to a customer.
+
+    - **GET `/api/customers/[customerId]/orders/[orderId]/items`**  
+    Fetch all items within a specific order.
+
+    - **GET `/api/customers/[customerId]/orders/[orderId]/items/[itemId]`**  
+    Fetch details of a specific item in an order.
+
+    ---
+
+    **Custom Size Endpoint**
+
+    - **GET `/api/custom-sizes`**  
+    Fetch available custom size options.  
+    _Note: This endpoint is referenced in the README but appears to be incomplete in the documentation._
+
+### Part 2: Building the Main Customer Data Table
+
+### Objectives
+- Implement a responsive customer data table using Material UI.
+- Integrate the table with the mock API backend.    
+
+### Steps
+
+1. **Create Customer Data Table Component**
+   - Create a new component `CustomerTable.tsx` in the `components` directory.
+   - Use Material UI's `DataGrid` to display customer data.
+   - Implement sorting, filtering, and pagination features.
+    - Fetch customer data from the mock API endpoint `/api/customers/`.
+    - Implement a search bar to filter customers by name or email.  
+    - Implement a dropdown to filter customers by status (active, churned, prospect).
+
+2. **Implement Customer Detail View**
+   - Fetch customer details from the mock API endpoint `/api/customers/[id]`.
+   - Display customer information, including their orders and order items.
+    - Implement a button to edit customer details, which opens a modal form for editing.
+
+### Part 3: Handling Relational Data with Expandable Rows
+
+### Objectives
+- Implement expandable rows in the customer data table to show related orders and order items.  
+- Use Material UI's `DataGrid` to handle expandable rows.
+### Steps
+1. **Implement Expandable Rows**
+   - When a row is expanded, fetch and display the customer's orders using the API endpoint `/api/customers/[id]/orders`.
+   - For each order, implement a nested expandable row to show order items using the endpoint `/api/customers/[customerId]/orders/[orderId]/items`.
+
+2. **Display Order and Item Details**
+   - For each order, display the order date, total amount, and a list of items.
+   - For each item, display the item name, category, price, and custom size details.
+   - Implement a button to view order details, which opens a modal with more information about the order and its items.
+
+### Part 4: Advanced Inline Editing
+
+### Objectives
+- Implement inline editing for customer data, orders, and order items.
+
+### Steps
+
+1. **Inline Editing for Customers**
+   - Implement inline editing for customer status and the custom size of a particular order item.
