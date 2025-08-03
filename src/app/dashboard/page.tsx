@@ -1,5 +1,3 @@
-// pages/dashboard.tsx
-
 "use client";
 
 import * as React from "react";
@@ -57,9 +55,9 @@ import {
   Warning as WarningIcon,
 } from "@mui/icons-material";
 
-// Import your types and service function
-import { fetchCustomers } from "../shared/services/customerServices";
-import { Order as OrderType } from "../shared/services/types";
+// Import your types and service functions
+import { fetchCustomers, updateCustomerStatus } from "../shared/services/customerServices";
+import { fetchOrdersByCustomerId, updateOrderItemCustomSize } from "../shared/services/orderServices";
 
 // Enhanced Customer interface with better typing
 interface CustomerType {
@@ -71,15 +69,6 @@ interface CustomerType {
   orderCount: number;
   lastOrderDate: string | null;
 }
-
-const fetchOrdersByCustomerId = async (customerId: string): Promise<OrderType[]> => {
-  const response = await fetch(`/api/customers/${customerId}/orders`);
-  if (!response.ok) {
-    throw new Error('Failed to fetch orders');
-  }
-  const data = await response.json();
-  return data.data;
-};
 
 // Status configuration for consistent styling
 const statusConfig = {
@@ -104,9 +93,11 @@ const statusConfig = {
 function Row({
   row,
   onStatusUpdate,
+  onShowMessage,
 }: {
   row: CustomerType;
   onStatusUpdate: (id: string, newStatus: CustomerType["status"]) => void;
+  onShowMessage: (message: string, type: 'success' | 'error') => void;
 }) {
   const theme = useTheme();
   const [open, setOpen] = React.useState(false);
@@ -120,6 +111,7 @@ function Row({
     Record<string, { chest: number; waist: number; hips: number }>
   >({});
   const [editingItemId, setEditingItemId] = React.useState<string | null>(null);
+  const [savingItemId, setSavingItemId] = React.useState<string | null>(null);
 
   const handleStatusSave = () => {
     onStatusUpdate(row.id, statusDraft);
@@ -160,8 +152,94 @@ function Row({
     }));
   };
 
-  const handleItemSave = (itemKey: string) => {
+  const handleItemSave = async (itemKey: string) => {
+    const [orderId, itemIndex] = itemKey.split('-');
+    const itemIndexNum = parseInt(itemIndex);
+    const order = orders.find(o => o.orderId === orderId);
+    const item = order?.items[itemIndexNum];
+
+    console.log('Component - handleItemSave called with:', {
+    itemKey,
+    orderId,
+    itemIndex,
+    itemIndexNum,
+    order: order ? 'found' : 'not found',
+    item: item ? 'found' : 'not found',
+    itemEdits: itemEdits[itemKey]
+  });
+    
+    if (!item || !itemEdits[itemKey]) {
+      setEditingItemId(null);
+      return;
+    }
+
+    setSavingItemId(itemKey);
+
+    try {
+      console.log('Component - Calling updateOrderItemCustomSize with:', {
+      orderId: orderId,
+      itemId: item.id,
+      customSize: itemEdits[itemKey],
+    });
+      // Use the existing service function from orderServices.tsx
+      const result = await updateOrderItemCustomSize({
+        orderId: orderId,
+        itemId: item.id,
+        customSize: itemEdits[itemKey],
+      });
+      
+      console.log('Component - Service result:', result);
+
+      if (result.success && result.data) {
+        // Update the local orders state with the new custom size
+        setOrders(prevOrders =>
+          prevOrders.map(order =>
+            order.orderId === orderId
+              ? {
+                  ...order,
+                  items: order.items.map((orderItem, index) =>
+                    index === itemIndexNum
+                      ? {
+                          ...orderItem,
+                          customSize: result.data.customSize,
+                        }
+                      : orderItem
+                  ),
+                }
+              : order
+          )
+        );
+
+        // Clear editing state
+        setEditingItemId(null);
+        setItemEdits(prev => {
+          const newEdits = { ...prev };
+          delete newEdits[itemKey];
+          return newEdits;
+        });
+
+        onShowMessage('Custom measurements updated successfully', 'success');
+      } else {
+        throw new Error(result.error || 'Failed to update custom size');
+      }
+    } catch (error) {
+      console.error('Error updating custom size:', error);
+      onShowMessage(
+        error instanceof Error ? error.message : 'Failed to update custom measurements',
+        'error'
+      );
+    } finally {
+      setSavingItemId(null);
+    }
+  };
+
+  const handleItemCancel = (itemKey: string) => {
     setEditingItemId(null);
+    setItemEdits(prev => {
+      const newEdits = { ...prev };
+      delete newEdits[itemKey];
+      return newEdits;
+    });
   };
 
   // Get user's initials for avatar
@@ -432,6 +510,7 @@ function Row({
                                   {order.items.map((item, itemIndex) => {
                                     const key = `${order.orderId}-${itemIndex}`;
                                     const isEditing = editingItemId === key;
+                                    const isSaving = savingItemId === key;
                                     const size = isEditing ? itemEdits[key] : item.customSize;
 
                                     return (
@@ -449,7 +528,7 @@ function Row({
                                           <Typography variant="body2" fontWeight={500}>
                                             {item.itemName}
                                           </Typography>
-                                          {!isEditing && (
+                                          {!isEditing && !isSaving && (
                                             <Tooltip title="Edit measurements">
                                               <IconButton 
                                                 size="small" 
@@ -481,6 +560,10 @@ function Row({
                                                     InputProps={{
                                                       endAdornment: <InputAdornment position="end">in</InputAdornment>,
                                                     }}
+                                                    inputProps={{
+                                                      min: 0,
+                                                      step: 0.1,
+                                                    }}
                                                     fullWidth
                                                   />
                                                 </Grid>
@@ -495,6 +578,10 @@ function Row({
                                                     }
                                                     InputProps={{
                                                       endAdornment: <InputAdornment position="end">in</InputAdornment>,
+                                                    }}
+                                                    inputProps={{
+                                                      min: 0,
+                                                      step: 0.1,
                                                     }}
                                                     fullWidth
                                                   />
@@ -511,6 +598,10 @@ function Row({
                                                     InputProps={{
                                                       endAdornment: <InputAdornment position="end">in</InputAdornment>,
                                                     }}
+                                                    inputProps={{
+                                                      min: 0,
+                                                      step: 0.1,
+                                                    }}
                                                     fullWidth
                                                   />
                                                 </Grid>
@@ -519,17 +610,19 @@ function Row({
                                                 <Button
                                                   size="small"
                                                   variant="contained"
-                                                  startIcon={<SaveIcon />}
+                                                  startIcon={isSaving ? <CircularProgress size={16} /> : <SaveIcon />}
                                                   onClick={() => handleItemSave(key)}
+                                                  disabled={isSaving}
                                                   sx={{ borderRadius: 1 }}
                                                 >
-                                                  Save
+                                                  {isSaving ? 'Saving...' : 'Save'}
                                                 </Button>
                                                 <Button
                                                   size="small"
                                                   variant="outlined"
                                                   startIcon={<CancelIcon />}
-                                                  onClick={() => setEditingItemId(null)}
+                                                  onClick={() => handleItemCancel(key)}
+                                                  disabled={isSaving}
                                                   sx={{ borderRadius: 1 }}
                                                 >
                                                   Cancel
@@ -639,7 +732,7 @@ export default function CollapsibleCustomerTable() {
     getCustomers();
   }, [getCustomers]);
 
-  const updateCustomerStatus = async (
+  const updateCustomerStatusHandler = async (
     id: string,
     newStatus: CustomerType["status"]
   ) => {
@@ -649,24 +742,8 @@ export default function CollapsibleCustomerTable() {
     );
 
     try {
-      // Make API call to Next.js API route
-      const response = await fetch(`/api/customers/${id}/orders`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          status: newStatus,
-          updated_at: new Date().toISOString()
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Failed to update customer status: ${response.status}`);
-      }
-
-      const result = await response.json();
+      // Use the service function
+      const result = await updateCustomerStatus(id, newStatus);
       
       // Update with the response from server (in case server modifies anything)
       if (result.success && result.data) {
@@ -725,6 +802,16 @@ export default function CollapsibleCustomerTable() {
       setTimeout(() => setError(null), 5000);
     }
   };
+
+  const handleShowMessage = React.useCallback((message: string, type: 'success' | 'error') => {
+    if (type === 'success') {
+      setSuccessMessage(message);
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } else {
+      setError(message);
+      setTimeout(() => setError(null), 5000);
+    }
+  }, []);
 
   const handleChangePage = (event: unknown, newPage: number) => {
     setPage(newPage);
@@ -966,7 +1053,8 @@ export default function CollapsibleCustomerTable() {
                       <Row
                         key={customer.id}
                         row={customer}
-                        onStatusUpdate={updateCustomerStatus}
+                        onStatusUpdate={updateCustomerStatusHandler}
+                        onShowMessage={handleShowMessage}
                       />
                     ))
                 )}
