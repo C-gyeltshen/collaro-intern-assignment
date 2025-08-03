@@ -205,3 +205,89 @@ export async function GET(request: NextRequest) {
     return createErrorResponse('Internal Server Error', 500);
   }
 }
+
+
+export async function PATCH(
+    request: NextRequest,
+    { params }: { params: Promise<{ id: string }> }
+) {
+    try {
+        const { id } = await params;
+        const body = await request.json();
+        const { status } = body;
+
+        if (!status || !['active', 'churned', 'prospect'].includes(status)) {
+            return NextResponse.json(
+                { error: 'Invalid status. Must be one of: active, churned, prospect' },
+                { status: 400 }
+            );
+        }
+
+        const supabase = await createClient();
+
+        // First, get the status ID for the given status name
+        const { data: statusData, error: statusError } = await supabase
+            .from('customer_statuses')
+            .select('id')
+            .eq('name', status)
+            .single();
+
+        if (statusError || !statusData) {
+            console.error('Error fetching status:', statusError);
+            return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
+        }
+
+        // Update the customer's status
+        const { data: updatedCustomer, error: updateError } = await supabase
+            .from('customers')
+            .update({ 
+                status_id: statusData.id,
+                modified_at: new Date().toISOString()
+            })
+            .eq('id', id)
+            .select(`
+                id,
+                name,
+                email,
+                revenue,
+                order_count,
+                last_order_date,
+                created_at,
+                customer_statuses (
+                    id,
+                    name
+                )
+            `)
+            .single();
+
+        if (updateError) {
+            console.error('Supabase error updating customer:', updateError);
+            return NextResponse.json({ error: updateError.message }, { status: 500 });
+        }
+
+        if (!updatedCustomer) {
+            return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
+        }
+
+        // Transform the response
+        const transformedCustomer = {
+            id: updatedCustomer.id,
+            name: updatedCustomer.name,
+            email: updatedCustomer.email,
+            status: updatedCustomer.customer_statuses?.name,
+            revenue: updatedCustomer.revenue,
+            orderCount: updatedCustomer.order_count,
+            lastOrderDate: updatedCustomer.last_order_date,
+            createdAt: updatedCustomer.created_at
+        };
+
+        return NextResponse.json({ 
+            data: transformedCustomer,
+            message: 'Customer status updated successfully'
+        }, { status: 200 });
+
+    } catch (err) {
+        console.error('Unexpected error:', err);
+        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    }
+}

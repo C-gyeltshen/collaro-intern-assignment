@@ -1,3 +1,5 @@
+// pages/dashboard.tsx
+
 "use client";
 
 import * as React from "react";
@@ -34,6 +36,7 @@ import {
   InputAdornment,
   Fade,
   Zoom,
+  Snackbar,
 } from "@mui/material";
 import {
   KeyboardArrowDown as KeyboardArrowDownIcon,
@@ -597,11 +600,13 @@ export default function CollapsibleCustomerTable() {
   const theme = useTheme();
   // State for customer data, pagination, loading, and error
   const [customers, setCustomers] = React.useState<CustomerType[]>([]);
+  const [originalCustomers, setOriginalCustomers] = React.useState<CustomerType[]>([]);
   const [page, setPage] = React.useState(0);
   const [rowsPerPage, setRowsPerPage] = React.useState(10);
   const [totalCustomers, setTotalCustomers] = React.useState(0);
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = React.useState<string | null>(null);
   const [searchQuery, setSearchQuery] = React.useState("");
 
   // Function to fetch data from your API
@@ -620,6 +625,7 @@ export default function CollapsibleCustomerTable() {
       }));
       
       setCustomers(formattedCustomers);
+      setOriginalCustomers(formattedCustomers); // Store original data for error recovery
       setTotalCustomers(data.pagination.total_items);
     } catch (err) {
       setError("Failed to fetch customers. Please try again.");
@@ -633,15 +639,91 @@ export default function CollapsibleCustomerTable() {
     getCustomers();
   }, [getCustomers]);
 
-  const updateCustomerStatus = (
+  const updateCustomerStatus = async (
     id: string,
     newStatus: CustomerType["status"]
   ) => {
+    // Optimistic update - update UI immediately
     setCustomers((prev) =>
       prev.map((c) => (c.id === id ? { ...c, status: newStatus } : c))
     );
-    // TODO: Add API call to update status on the backend
-    console.log(`Updating customer ${id} status to ${newStatus}`);
+
+    try {
+      // Make API call to Next.js API route
+      const response = await fetch(`/api/customers/${id}/orders`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          status: newStatus,
+          updated_at: new Date().toISOString()
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Failed to update customer status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      
+      // Update with the response from server (in case server modifies anything)
+      if (result.success && result.data) {
+        setCustomers((prev) =>
+          prev.map((c) => 
+            c.id === id 
+              ? { 
+                  ...c, 
+                  status: result.data.status,
+                  // Map any additional fields from Supabase response
+                  ...(result.data.order_count && { orderCount: result.data.order_count }),
+                  ...(result.data.last_order_date && { lastOrderDate: result.data.last_order_date }),
+                } 
+              : c
+          )
+        );
+        
+        // Update original customers data as well
+        setOriginalCustomers((prev) =>
+          prev.map((c) => 
+            c.id === id 
+              ? { 
+                  ...c, 
+                  status: result.data.status,
+                  ...(result.data.order_count && { orderCount: result.data.order_count }),
+                  ...(result.data.last_order_date && { lastOrderDate: result.data.last_order_date }),
+                } 
+              : c
+          )
+        );
+      }
+
+      // Show success message
+      setSuccessMessage(`Customer status updated to ${statusConfig[newStatus].label.toLowerCase()}`);
+      setTimeout(() => setSuccessMessage(null), 3000);
+      
+      console.log(`Successfully updated customer ${id} status to ${newStatus}`);
+    } catch (error) {
+      console.error('Error updating customer status:', error);
+      
+      // Revert the optimistic update on error
+      const originalCustomer = originalCustomers.find(customer => customer.id === id);
+      if (originalCustomer) {
+        setCustomers((prev) =>
+          prev.map((c) => 
+            c.id === id ? { ...c, status: originalCustomer.status } : c
+          )
+        );
+      }
+
+      // Show user-friendly error message
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update customer status. Please try again.';
+      setError(errorMessage);
+      
+      // Clear error after 5 seconds
+      setTimeout(() => setError(null), 5000);
+    }
   };
 
   const handleChangePage = (event: unknown, newPage: number) => {
@@ -936,6 +1018,39 @@ export default function CollapsibleCustomerTable() {
           Showing {Math.min((page * rowsPerPage) + 1, totalCustomers)} - {Math.min((page + 1) * rowsPerPage, totalCustomers)} of {totalCustomers} customers
         </Typography>
       </Box>
+      
+      {/* Success and Error Snackbars */}
+      <Snackbar
+        open={!!successMessage}
+        autoHideDuration={3000}
+        onClose={() => setSuccessMessage(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert 
+          onClose={() => setSuccessMessage(null)} 
+          severity="success" 
+          variant="filled"
+          sx={{ borderRadius: 2 }}
+        >
+          {successMessage}
+        </Alert>
+      </Snackbar>
+      
+      <Snackbar
+        open={!!error}
+        autoHideDuration={5000}
+        onClose={() => setError(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert 
+          onClose={() => setError(null)} 
+          severity="error" 
+          variant="filled"
+          sx={{ borderRadius: 2 }}
+        >
+          {error}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

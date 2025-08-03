@@ -69,3 +69,44 @@ export const fetchCustomerOrders = async (customerId: string): Promise<OrdersRes
     throw error;
   }
 };
+
+
+export const updateCustomerStatus = async (
+  customerId: string, 
+  newStatus: 'active' | 'churned' | 'prospect'
+): Promise<Customer> => {
+  try {
+    const response = await fetch(`/api/customers/${customerId}/orders`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ status: newStatus }),
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    return data.data;
+  } catch (error) {
+    console.error('Error updating customer status:', error);
+    throw error;
+  }
+};
+
+
+export const fetchOrdersByCustomerId = async (customerId: string): Promise<OrderType[]> => {
+  const response = await fetch(`/api/customers/${customerId}/orders`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch orders');
+  }
+  const data = await response.json();
+  return data.data;
+};
+
+
+
+
+
